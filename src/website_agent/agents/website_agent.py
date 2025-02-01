@@ -5,12 +5,16 @@ import requests
 from bs4 import BeautifulSoup
 import yaml
 import schedule
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger("WebsiteAgent")
 
 
 class WebsiteAgent:
-    """Agent responsible for monitoring website status and performance."""
+    """Agent responsible for monitoring website status and performance with ML-based anomaly detection."""
 
     def __init__(self, config_path="config/config.yaml"):
         self.logger = logger
@@ -19,6 +23,16 @@ class WebsiteAgent:
         self.baseline_metrics = None
         self.current_check_interval = self.config["website"]["check_interval"]
         self.learning_cycles = 0
+        
+        # ML components
+        self.scaler = StandardScaler()
+        self.isolation_forest = IsolationForest(
+            contamination=0.1,  # Expected proportion of anomalies
+            random_state=42,
+            n_estimators=100
+        )
+        self.ml_ready = False
+        self.min_samples_for_ml = 50  # Minimum samples needed before ML kicks in
 
     def _load_config(self, config_path):
         """Load configuration from YAML file"""
@@ -38,49 +52,107 @@ class WebsiteAgent:
             "monitoring": {"enabled": True, "check_uptime": True, "check_performance": True},
         }
 
+    def _prepare_ml_data(self):
+        """Prepare data for machine learning analysis"""
+        if len(self.performance_history) < self.min_samples_for_ml:
+            return None
+            
+        # Extract numerical features
+        data = []
+        for metrics in self.performance_history:
+            features = {
+                'response_time': float(metrics['response_time'].replace('s', '')),
+                'content_length': metrics['content_length'],
+                'links_count': metrics['links_count'],
+                'images_count': metrics['images_count'],
+                'status_code': metrics['status_code']
+            }
+            data.append(features)
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        return df
+
+    def _train_ml_model(self):
+        """Train the anomaly detection model"""
+        df = self._prepare_ml_data()
+        if df is None:
+            return False
+            
+        # Standardize the features
+        scaled_data = self.scaler.fit_transform(df)
+        
+        # Train the model
+        self.isolation_forest.fit(scaled_data)
+        self.ml_ready = True
+        self.logger.info("ML model trained successfully")
+        return True
+
+    def _detect_anomalies_ml(self, current_metrics):
+        """Detect anomalies using machine learning"""
+        if not self.ml_ready:
+            return []
+            
+        # Prepare current metrics
+        current_data = pd.DataFrame([{
+            'response_time': float(current_metrics['response_time'].replace('s', '')),
+            'content_length': current_metrics['content_length'],
+            'links_count': current_metrics['links_count'],
+            'images_count': current_metrics['images_count'],
+            'status_code': current_metrics['status_code']
+        }])
+        
+        # Scale the current data
+        scaled_current = self.scaler.transform(current_data)
+        
+        # Predict anomaly (-1 for anomaly, 1 for normal)
+        prediction = self.isolation_forest.predict(scaled_current)
+        
+        # Get anomaly score (negative score indicates anomaly)
+        anomaly_score = self.isolation_forest.score_samples(scaled_current)[0]
+        
+        decisions = []
+        if prediction[0] == -1:
+            # This is an anomaly
+            severity = "high" if anomaly_score < -0.5 else "medium"
+            decisions.append({
+                "type": "alert",
+                "action": "ml_anomaly",
+                "reason": f"ML model detected {severity} severity anomaly (score: {anomaly_score:.3f})",
+                "severity": severity,
+                "anomaly_score": anomaly_score
+            })
+            
+            # Adjust monitoring frequency for high-severity anomalies
+            if severity == "high":
+                decisions.append({
+                    "type": "adjust_monitoring",
+                    "action": "decrease_interval",
+                    "reason": "High-severity anomaly detected by ML model"
+                })
+                
+        return decisions
+
     def analyze_metrics(self, metrics):
-        """Analyze metrics and make autonomous decisions"""
+        """Analyze metrics and make autonomous decisions using both traditional and ML approaches"""
         # Update performance history
         self.performance_history.append(metrics)
-        if len(self.performance_history) > 100:  # Keep last 100 records
+        if len(self.performance_history) > 100:
             self.performance_history.pop(0)
-
-        # Learn and update baseline after collecting enough data
-        if len(self.performance_history) >= 10 and self.learning_cycles % 10 == 0:
-            self._update_baseline_metrics()
-
+            
+        # Train/update ML model every 10 cycles if we have enough data
+        if len(self.performance_history) >= self.min_samples_for_ml and self.learning_cycles % 10 == 0:
+            self._train_ml_model()
+            
         self.learning_cycles += 1
-
-        # Make decisions based on current metrics
-        decisions = self._make_decisions(metrics)
-        self._execute_decisions(decisions)
-
-    def _update_baseline_metrics(self):
-        """Update baseline metrics based on historical data"""
-        if not self.performance_history:
-            return
-
-        # Calculate average metrics
-        response_times = [
-            float(m["response_time"].replace("s", "")) for m in self.performance_history
-        ]
-        content_lengths = [m["content_length"] for m in self.performance_history]
-
-        self.baseline_metrics = {
-            "avg_response_time": sum(response_times) / len(response_times),
-            "std_response_time": (
-                sum((x - (sum(response_times) / len(response_times))) ** 2 for x in response_times)
-                / len(response_times)
-            )
-            ** 0.5,
-            "avg_content_length": sum(content_lengths) / len(content_lengths),
-            "typical_status_code": max(
-                set(m["status_code"] for m in self.performance_history),
-                key=self.performance_history.count,
-            ),
-        }
-
-        self.logger.info(f"Updated baseline metrics: {self.baseline_metrics}")
+        
+        # Get decisions from both traditional and ML approaches
+        traditional_decisions = self._make_decisions(metrics)
+        ml_decisions = self._detect_anomalies_ml(metrics)
+        
+        # Combine and execute all decisions
+        all_decisions = traditional_decisions + ml_decisions
+        self._execute_decisions(all_decisions)
 
     def _make_decisions(self, metrics):
         """Make autonomous decisions based on current metrics and baseline"""
@@ -147,29 +219,59 @@ class WebsiteAgent:
 
         return decisions
 
+    def _update_baseline_metrics(self):
+        """Update baseline metrics based on historical data"""
+        if not self.performance_history:
+            return
+
+        # Calculate average metrics
+        response_times = [
+            float(m["response_time"].replace("s", "")) for m in self.performance_history
+        ]
+        content_lengths = [m["content_length"] for m in self.performance_history]
+
+        self.baseline_metrics = {
+            "avg_response_time": sum(response_times) / len(response_times),
+            "std_response_time": (
+                sum((x - (sum(response_times) / len(response_times))) ** 2 for x in response_times)
+                / len(response_times)
+            )
+            ** 0.5,
+            "avg_content_length": sum(content_lengths) / len(content_lengths),
+            "typical_status_code": max(
+                set(m["status_code"] for m in self.performance_history),
+                key=self.performance_history.count,
+            ),
+        }
+
+        self.logger.info(f"Updated baseline metrics: {self.baseline_metrics}")
+
     def _execute_decisions(self, decisions):
         """Execute the decisions made by the agent"""
         for decision in decisions:
             self.logger.info(f"Executing decision: {decision}")
-
+            
             if decision["type"] == "adjust_monitoring":
                 if decision["action"] == "decrease_interval":
-                    new_interval = max(
-                        0.5, self.current_check_interval * 0.5
-                    )  # Don't go below 30 seconds
+                    new_interval = max(0.5, self.current_check_interval * 0.5)
                     self.current_check_interval = new_interval
                     schedule.clear()
                     schedule.every(new_interval).minutes.do(self.monitor_website)
                     self.logger.info(f"Adjusted monitoring interval to {new_interval} minutes")
-
+                    
             elif decision["type"] == "alert":
-                # Here you could implement different alert mechanisms (email, Slack, etc.)
                 if decision["action"] == "critical_error":
                     self.logger.critical(f"CRITICAL ALERT: {decision['reason']}")
                 elif decision["action"] == "warning":
                     self.logger.warning(f"WARNING: {decision['reason']}")
                 elif decision["action"] == "content_change":
                     self.logger.warning(f"CONTENT ALERT: {decision['reason']}")
+                elif decision["action"] == "ml_anomaly":
+                    severity = decision.get("severity", "unknown")
+                    self.logger.warning(
+                        f"ML ANOMALY ({severity.upper()}): {decision['reason']}\n"
+                        f"Anomaly Score: {decision.get('anomaly_score', 'N/A')}"
+                    )
 
     def monitor_website(self):
         """Monitor website status and performance"""
