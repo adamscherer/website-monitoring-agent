@@ -1,0 +1,21 @@
+website:
+  url: http://example.com
+  check_interval: 2  # minutes
+
+monitoring:
+  enabled: true
+  check_uptime: true
+  check_performance: true
+  
+notifications:
+  email:
+    enabled: false
+    smtp_server: smtp.example.com
+    smtp_port: 587
+    from_address: agent@example.com
+    to_address: admin@example.com
+
+security:
+  scan_frequency: daily
+  ssl_check: true
+  vulnerability_scan: true

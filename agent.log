@@ -1,0 +1,29 @@
+2025-02-01 15:36:17,874 - WebsiteAgent - INFO - Starting Website Management Agent
+2025-02-01 15:39:45,866 - WebsiteAgent - INFO - Starting Website Management Agent
+2025-02-01 15:40:16,213 - WebsiteAgent - INFO - Starting Website Management Agent
+2025-02-01 15:41:30,248 - WebsiteAgent - INFO - Starting Website Management Agent
+2025-02-01 15:42:37,646 - WebsiteAgent - INFO - Starting Website Management Agent with config: 5
+2025-02-01 15:43:01,592 - WebsiteAgent - INFO - Starting Website Management Agent with config: 0.25
+2025-02-01 15:43:16,636 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:43:31,692 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:43:46,756 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:44:01,806 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:44:16,871 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:44:31,926 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:44:46,976 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:45:02,044 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:45:17,091 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:45:32,145 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:45:47,201 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:47:11,790 - WebsiteAgent - INFO - Starting Website Management Agent with config: 0.25
+2025-02-01 15:47:26,853 - WebsiteAgent - INFO - Checking website: http://example.com
+2025-02-01 15:47:27,036 - WebsiteAgent - INFO - Website check completed successfully:
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   status_code: 200
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   response_time: 0.18s
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   content_length: 1256
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   title: Example Domain
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   links_count: 1
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   images_count: 0
+2025-02-01 15:47:27,037 - WebsiteAgent - INFO -   timestamp: 2025-02-01T15:47:27.036861
+2025-02-01 15:47:40,568 - WebsiteAgent - INFO - Starting Website Management Agent with config: 2
+2025-02-01 15:55:09,081 - WebsiteAgent - INFO - Starting Website Management Agent with config: 2
