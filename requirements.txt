@@ -8,3 +8,11 @@ black==23.12.1
 scikit-learn==1.4.0
 numpy==1.26.3
 pandas==2.2.0
+langchain-core==0.1.16
+langchain-openai==0.0.5
+langgraph==0.0.20
+fastapi==0.109.0
+uvicorn==0.27.0
+openai>=1.10.0,<2.0.0
+tiktoken>=0.5.2
+typing-extensions>=4.8.0
